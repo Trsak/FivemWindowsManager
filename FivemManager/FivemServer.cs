@@ -18,7 +18,7 @@ namespace FivemManager
 
         public void StartServer()
         {
-            LogToConsole("Zapínám server...");
+            LogToConsole("Starting server...");
             var process = new System.Diagnostics.Process();
 
             var startInfo = new System.Diagnostics.ProcessStartInfo
@@ -26,7 +26,7 @@ namespace FivemManager
                 WindowStyle = System.Diagnostics.ProcessWindowStyle.Normal,
                 FileName = this._config.TryGetValue<string>("FXServerLocation") + "/FXServer.exe",
                 Arguments = "+set citizen_dir " + this._config.TryGetValue<string>("FXServerLocation") +
-                            "/citizen/ +exec server.cfg",
+                            "/citizen/ +exec " + this._config.TryGetValue<string>("ConfigFile"),
                 WorkingDirectory = this._config.TryGetValue<string>("ServerLocation")
             };
 
@@ -35,11 +35,15 @@ namespace FivemManager
 
             this._isRunning = true;
 
-            this.AddRestartJob("02:00:05");
-            this.AddRestartJob("12:00:05");
-            this.AddRestartJob("18:00:05");
+            var restartTimes = this._config.TryGetValue<string>("RestartTimes");
 
-            Console.CancelKeyPress += new ConsoleCancelEventHandler(cancelHandler);
+            var times = restartTimes.Split(';');
+            foreach (var time in times)
+            {
+                this.AddRestartJob(time);
+            }
+
+            Console.CancelKeyPress += new ConsoleCancelEventHandler(CancelHandler);
 
             while (this._isRunning)
             {
@@ -47,13 +51,13 @@ namespace FivemManager
             }
         }
 
-        protected void cancelHandler(object sender, ConsoleCancelEventArgs args)
+        public void CancelHandler(object sender, ConsoleCancelEventArgs args)
         {
             this._isRunning = false;
 
             StopServer();
 
-            LogToConsole("Ukončuji server...");
+            LogToConsole("Stopping server...");
             Environment.Exit(0);
         }
 
@@ -76,6 +80,7 @@ namespace FivemManager
                 ts = date - dateNow;
             }
 
+            LogToConsole("Registered automatic server restart in " + dailyTime);
             Task.Delay(ts).ContinueWith((x) => OnRestart());
         }
 
@@ -90,7 +95,7 @@ namespace FivemManager
         private void OnRestart()
         {
             StopServer();
-            LogToConsole("Restartuji server...");
+            LogToConsole("Restarting server...");
             System.Threading.Thread.Sleep(5000);
             this.StartServer();
         }
