@@ -8,12 +8,15 @@ namespace FivemManager
 {
     internal class FivemServer
     {
-        private bool _isRunning;
+        public bool IsRunning;
+        private bool _isFivemServerRunning;
         private readonly ConfigReader _config;
 
         public FivemServer(ConfigReader config)
         {
             this._config = config;
+            this.IsRunning = false;
+            this._isFivemServerRunning = false;
         }
 
         public void StartServer()
@@ -33,27 +36,13 @@ namespace FivemManager
             process.StartInfo = startInfo;
             process.Start();
 
-            this._isRunning = true;
-
-            var restartTimes = this._config.TryGetValue<string>("RestartTimes");
-
-            var times = restartTimes.Split(';');
-            foreach (var time in times)
-            {
-                this.AddRestartJob(time);
-            }
-
-            Console.CancelKeyPress += new ConsoleCancelEventHandler(CancelHandler);
-
-            while (this._isRunning)
-            {
-                Console.ReadKey();
-            }
+            this.IsRunning = true;
+            this._isFivemServerRunning = true;
         }
 
         public void CancelHandler(object sender, ConsoleCancelEventArgs args)
         {
-            this._isRunning = false;
+            this.IsRunning = false;
 
             StopServer();
 
@@ -61,7 +50,7 @@ namespace FivemManager
             Environment.Exit(0);
         }
 
-        protected void AddRestartJob(string dailyTime)
+        public void AddRestartJob(string dailyTime)
         {
             var timeParts = dailyTime.Split(new char[1] {':'});
 
@@ -84,8 +73,10 @@ namespace FivemManager
             Task.Delay(ts).ContinueWith((x) => OnRestart());
         }
 
-        private static void StopServer()
+        private void StopServer()
         {
+            this._isFivemServerRunning = false;
+
             foreach (var process in Process.GetProcessesByName("FXServer"))
             {
                 process.Kill();
@@ -98,6 +89,23 @@ namespace FivemManager
             LogToConsole("Restarting server...");
             System.Threading.Thread.Sleep(5000);
             this.StartServer();
+        }
+
+        public void CheckIfCrashed()
+        {
+            LogToConsole("CRASH CHECK: Checking, if server is running.");
+
+            if (!this._isFivemServerRunning) return;
+
+            var processesNumber = Process.GetProcessesByName("FXServer").GetLength(0);
+            if (processesNumber == 0)
+            {
+                LogToConsole("CRASH CHECK: Server is not running!");
+                this.StartServer();
+                return;
+            }
+
+            LogToConsole("CRASH CHECK: Server is running.");
         }
 
         private static void LogToConsole(string text)
