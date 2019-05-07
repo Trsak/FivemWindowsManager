@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ConfigFile;
@@ -11,18 +13,20 @@ namespace FivemManager
         public bool IsRunning;
         private bool _isFivemServerRunning;
         private readonly ConfigReader _config;
+        private Process _process;
 
         public FivemServer(ConfigReader config)
         {
             this._config = config;
             this.IsRunning = false;
             this._isFivemServerRunning = false;
+            this._process = null;
         }
 
         public void StartServer()
         {
             LogToConsole("Starting server...");
-            var process = new System.Diagnostics.Process();
+            this._process = new System.Diagnostics.Process();
 
             var startInfo = new System.Diagnostics.ProcessStartInfo
             {
@@ -33,8 +37,8 @@ namespace FivemManager
                 WorkingDirectory = this._config.TryGetValue<string>("ServerLocation")
             };
 
-            process.StartInfo = startInfo;
-            process.Start();
+            this._process.StartInfo = startInfo;
+            this._process.Start();
 
             this.IsRunning = true;
             this._isFivemServerRunning = true;
@@ -77,10 +81,7 @@ namespace FivemManager
         {
             this._isFivemServerRunning = false;
 
-            foreach (var process in Process.GetProcessesByName("FXServer"))
-            {
-                process.Kill();
-            }
+            this._process.Kill();
         }
 
         private void OnRestart()
@@ -93,24 +94,45 @@ namespace FivemManager
 
         public void CheckIfCrashed()
         {
-            LogToConsole("CRASH CHECK: Checking, if server is running.");
-
             if (!this._isFivemServerRunning) return;
 
-            var processesNumber = Process.GetProcessesByName("FXServer").GetLength(0);
-            if (processesNumber == 0)
+            LogToConsole("CRASH CHECK: Checking, if server is running.");
+
+
+            if (!this.IsProcessRunning())
             {
                 LogToConsole("CRASH CHECK: Server is not running!");
                 this.StartServer();
                 return;
             }
 
-            LogToConsole("CRASH CHECK: Server is running.");
+            LogToConsole("CRASH CHECK: Server is running."); 
         }
 
         private static void LogToConsole(string text)
         {
-            Console.WriteLine(DateTime.Now.ToString("[HH:mm:ss] ") + text);
+            text = DateTime.Now.ToString("[HH:mm:ss] ") + text;
+            Console.WriteLine(text);
+            System.IO.File.AppendAllText(@"log.txt", text + "\n");
+        }
+
+        private bool IsProcessRunning()
+        {
+            if (this._process == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                Process.GetProcessById(this._process.Id);
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }
