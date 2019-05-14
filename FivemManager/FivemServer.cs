@@ -24,7 +24,7 @@ namespace FivemManager
             _isFivemServerRunning = false;
             _process = null;
             string path = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)+"/Logs/";
-            if (!Directory.Exists(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)+"/Logs/"))
+            if (!Directory.Exists(path))
             {
                 Directory.CreateDirectory(path);
             }
@@ -32,6 +32,14 @@ namespace FivemManager
 
         public void StartServer()
         {
+            Console.WriteLine("Removing old cache from server...");
+            string serverPath = _config.TryGetValue<string>("FXServerLocation");
+            if (Directory.Exists(serverPath + "/cache"))
+            {
+                Directory.Delete(serverPath+ "/cache", true);
+                Thread.Sleep(3000);
+            }
+
             LogToConsole("Starting server...");
             _process = new Process();
 
