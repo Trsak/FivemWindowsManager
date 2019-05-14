@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using ConfigFile;
@@ -14,39 +15,50 @@ namespace FivemManager
         private bool _isFivemServerRunning;
         private readonly ConfigReader _config;
         private Process _process;
+        string date;
 
         public FivemServer(ConfigReader config)
         {
-            this._config = config;
-            this.IsRunning = false;
-            this._isFivemServerRunning = false;
-            this._process = null;
+            _config = config;
+            IsRunning = false;
+            _isFivemServerRunning = false;
+            _process = null;
+            string path = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)+"/Logs/";
+            if (!Directory.Exists(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)+"/Logs/"))
+            {
+                Directory.CreateDirectory(path);
+            }
         }
 
         public void StartServer()
         {
             LogToConsole("Starting server...");
-            this._process = new System.Diagnostics.Process();
+            _process = new Process();
 
-            var startInfo = new System.Diagnostics.ProcessStartInfo
+            var startInfo = new ProcessStartInfo
             {
-                WindowStyle = System.Diagnostics.ProcessWindowStyle.Normal,
-                FileName = this._config.TryGetValue<string>("FXServerLocation") + "/FXServer.exe",
-                Arguments = "+set citizen_dir " + this._config.TryGetValue<string>("FXServerLocation") +
-                            "/citizen/ +exec " + this._config.TryGetValue<string>("ConfigFile"),
-                WorkingDirectory = this._config.TryGetValue<string>("ServerLocation")
+                WindowStyle = ProcessWindowStyle.Normal,
+                FileName = _config.TryGetValue<string>("FXServerLocation") + "/FXServer.exe",
+                Arguments = "+set citizen_dir " + _config.TryGetValue<string>("FXServerLocation") +
+                            "/citizen/ +exec " + _config.TryGetValue<string>("ConfigFile"),
+                WorkingDirectory = _config.TryGetValue<string>("ServerLocation")
             };
+            startInfo.UseShellExecute = false;
+            startInfo.RedirectStandardOutput = true;
 
-            this._process.StartInfo = startInfo;
-            this._process.Start();
+            _process.StartInfo = startInfo;
+            date = DateTime.Now.ToString("yyyy_MM_dd_HH_mm");
+            _process.OutputDataReceived += CaptureOutput;
+            _process.Start();
 
-            this.IsRunning = true;
-            this._isFivemServerRunning = true;
+            _process.BeginOutputReadLine();
+            IsRunning = true;
+            _isFivemServerRunning = true;
         }
 
         public void CancelHandler(object sender, ConsoleCancelEventArgs args)
         {
-            this.IsRunning = false;
+            IsRunning = false;
 
             StopServer();
 
@@ -79,41 +91,50 @@ namespace FivemManager
 
         private void StopServer()
         {
-            this._isFivemServerRunning = false;
+            _isFivemServerRunning = false;
 
-            this._process.Kill();
+            _process.Kill();
         }
 
         private void OnRestart()
         {
             StopServer();
             LogToConsole("Restarting server...");
-            System.Threading.Thread.Sleep(5000);
-            this.StartServer();
+            Thread.Sleep(5000);
+            StartServer();
         }
 
         public void CheckIfCrashed()
         {
-            if (!this._isFivemServerRunning) return;
+            if (!_isFivemServerRunning) return;
 
             LogToConsole("CRASH CHECK: Checking, if server is running.");
 
 
-            if (!this.IsProcessRunning())
+            if (!IsProcessRunning())
             {
                 LogToConsole("CRASH CHECK: Server is not running!");
-                this.StartServer();
+                StartServer();
                 return;
             }
 
-            LogToConsole("CRASH CHECK: Server is running."); 
+            LogToConsole("CRASH CHECK: Server is running.");
         }
 
         private static void LogToConsole(string text)
         {
             text = DateTime.Now.ToString("[HH:mm:ss] ") + text;
             Console.WriteLine(text);
-            System.IO.File.AppendAllText(@"log.txt", text + "\n");
+            File.AppendAllText(@"log.txt", text + "\n");
+        }
+
+        private void CaptureOutput(object sender, DataReceivedEventArgs e)
+        {
+            if(e.Data != null)
+            {
+                Console.WriteLine(e.Data);
+                File.AppendAllText(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)+"/Logs/"+ date + ".txt", e.Data.ToString() + "\n");
+            }
         }
 
         private bool IsProcessRunning()
