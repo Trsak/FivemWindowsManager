@@ -4,6 +4,8 @@ Fivem server manager for Windows
 ## Features
 * Schedule automatic server restarts
 * Check if server is running every X minutes
+* in the folder there is on each reboot a log file
+* delete cache folder on sevrer (re)start
 
 ## Usage
 Simply download latest [Release](https://github.com/Trsak/FivemWindowsManager/releases/latest), edit config and run  **FivemManager.exe**.
